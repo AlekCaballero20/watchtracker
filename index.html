@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="es-CO">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#080e1c" />
+  <meta name="description" content="Tracker local para series y películas. Sin backend, sin drama." />
+  <title>Watch Tracker · Series & Pelis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="sr-only" href="#main">Saltar al contenido</a>
+
+  <!-- HEADER -->
+  <header class="wrap header">
+    <div class="topbar">
+      <div class="brand">
+        <h1>Watch<span class="brand-accent">Tracker</span></h1>
+        <p class="muted sub">"La tengo en la cabeza" no es un sistema. 📺🎬</p>
+        <div class="shortcuts mini muted">
+          <span class="kbd-pill"><kbd>Alt</kbd>+<kbd>E</kbd> +1 ep</span>
+          <span class="kbd-pill"><kbd>Alt</kbd>+<kbd>T</kbd> estado</span>
+          <span class="kbd-pill"><kbd>Enter</kbd> agrega</span>
+        </div>
+      </div>
+
+      <!-- Profile toggle -->
+      <div class="profile-toggle" role="group" aria-label="Perfil activo">
+        <button type="button" class="profile-btn" data-profile="alek">
+          <span class="avatar av-alek">A</span>
+          <span>Alek</span>
+        </button>
+        <button type="button" class="profile-btn" data-profile="cata">
+          <span class="avatar av-cata">C</span>
+          <span>Cata</span>
+        </button>
+        <button type="button" class="profile-btn" data-profile="all">
+          <span class="avatar av-all">🫶</span>
+          <span>Juntos</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main id="main" class="wrap main-grid">
+
+    <!-- LEFT COLUMN -->
+    <aside class="sidebar">
+
+      <!-- Add form -->
+      <div class="panel">
+        <h2 class="panel-title">Agregar</h2>
+        <form id="form" autocomplete="off" novalidate>
+
+          <input id="title" name="title" type="text"
+            placeholder="Título (Arcane, Dune, The Bear…)"
+            required maxlength="120" class="input-main" />
+
+          <div class="row-2 mt-10">
+            <div class="field">
+              <select id="type" name="type" required>
+                <option value="serie">📺 Serie</option>
+                <option value="pelicula">🎬 Película</option>
+                <option value="anime">⛩️ Anime</option>
+                <option value="documental">🎙️ Documental</option>
+              </select>
+              <span class="field-label">Tipo</span>
+            </div>
+            <div class="field">
+              <select id="status" name="status" required>
+                <option value="pendiente">🕐 Pendiente</option>
+                <option value="viendo">▶️ Viendo</option>
+                <option value="terminada">✅ Terminada</option>
+                <option value="en-pausa">⏸️ En pausa</option>
+                <option value="abandonada">❌ Abandonada</option>
+              </select>
+              <span class="field-label">Estado</span>
+            </div>
+          </div>
+
+          <div class="row-2 mt-10">
+            <div class="field">
+              <select id="platform" name="platform">
+                <option value="">— Plataforma</option>
+                <option value="netflix">Netflix</option>
+                <option value="max">Max</option>
+                <option value="prime">Prime Video</option>
+                <option value="disney">Disney+</option>
+                <option value="apple">Apple TV+</option>
+                <option value="crunchyroll">Crunchyroll</option>
+                <option value="mubi">MUBI</option>
+                <option value="youtube">YouTube</option>
+                <option value="otro">Otro</option>
+              </select>
+              <span class="field-label">Plataforma</span>
+            </div>
+            <div class="field">
+              <select id="formProfile" name="formProfile">
+                <option value="alek">Alek</option>
+                <option value="cata">Cata</option>
+                <option value="shared">Juntos 🫶</option>
+              </select>
+              <span class="field-label">¿De quién?</span>
+            </div>
+          </div>
+
+          <details class="advanced-toggle mt-12">
+            <summary>⚙️ Opciones avanzadas</summary>
+            <div class="advanced-body">
+              <div class="row-3">
+                <div class="field">
+                  <input id="season" name="season" type="number" min="0" step="1" placeholder="0" />
+                  <span class="field-label">Temporada</span>
+                </div>
+                <div class="field">
+                  <input id="episode" name="episode" type="number" min="0" step="1" placeholder="0" />
+                  <span class="field-label">Episodio</span>
+                </div>
+                <div class="field">
+                  <input id="rating" name="rating" type="number" min="0" max="10" step="1" placeholder="—" />
+                  <span class="field-label">Rating /10</span>
+                </div>
+              </div>
+              <div class="field mt-10">
+                <input id="tags" name="tags" type="text" placeholder="Terror, Sci-Fi, Romance…" />
+                <span class="field-label">Tags (coma para separar)</span>
+              </div>
+              <div class="field mt-10">
+                <input id="poster" name="poster" type="url" placeholder="https://… (URL del póster)" />
+                <span class="field-label">Imagen de portada</span>
+              </div>
+              <div class="field mt-10">
+                <input id="recommendedBy" name="recommendedBy" type="text" placeholder="¿Quién lo recomendó?" maxlength="80" />
+                <span class="field-label">Recomendado por</span>
+              </div>
+              <div class="field mt-10">
+                <textarea id="notes" name="notes" rows="3" placeholder="Notas rápidas, capítulo pendiente, con quién la viste…"></textarea>
+                <span class="field-label">Notas</span>
+              </div>
+            </div>
+          </details>
+
+          <div class="form-actions mt-12">
+            <button type="submit" class="btn-primary">Agregar</button>
+            <button type="button" id="clearAll" class="btn-ghost danger-text">Borrar todo</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Filters -->
+      <div class="panel mt-14">
+        <h2 class="panel-title">Buscar y filtrar</h2>
+
+        <input id="search" type="search" placeholder="Título, notas, tags, recomendado por…" />
+
+        <div class="row-2 mt-10">
+          <div class="field">
+            <select id="filterStatus">
+              <option value="">Todos los estados</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="viendo">Viendo</option>
+              <option value="terminada">Terminada</option>
+              <option value="en-pausa">En pausa</option>
+              <option value="abandonada">Abandonada</option>
+            </select>
+          </div>
+          <div class="field">
+            <select id="filterType">
+              <option value="">Todos los tipos</option>
+              <option value="serie">Serie</option>
+              <option value="pelicula">Película</option>
+              <option value="anime">Anime</option>
+              <option value="documental">Documental</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row-2 mt-10">
+          <div class="field">
+            <select id="filterPlatform">
+              <option value="">Todas las plataformas</option>
+              <option value="netflix">Netflix</option>
+              <option value="max">Max</option>
+              <option value="prime">Prime Video</option>
+              <option value="disney">Disney+</option>
+              <option value="apple">Apple TV+</option>
+              <option value="crunchyroll">Crunchyroll</option>
+              <option value="mubi">MUBI</option>
+              <option value="youtube">YouTube</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div class="field">
+            <select id="sortBy">
+              <option value="updated_desc">Más recientes</option>
+              <option value="created_desc">Agregados</option>
+              <option value="title_asc">A → Z</option>
+              <option value="rating_desc">Mejor rating</option>
+              <option value="status_asc">Por estado</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="divider mt-12"></div>
+
+        <!-- Stats -->
+        <div id="stats" aria-live="polite" class="stats-block mini muted">
+          Cargando…
+        </div>
+      </div>
+
+      <!-- Backup -->
+      <div class="panel mt-14">
+        <div class="backup-row">
+          <button type="button" id="exportBtn" class="btn-ghost">⬇ Exportar</button>
+          <button type="button" id="importBtn" class="btn-ghost">⬆ Importar</button>
+          <span class="mini muted">Backup JSON</span>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- RIGHT COLUMN -->
+    <section class="list-col" aria-label="Listado">
+      <div class="panel">
+        <div class="list-header">
+          <h2 style="margin:0">Tu lista</h2>
+          <span class="mini muted" id="listCount"></span>
+        </div>
+        <div class="divider"></div>
+        <div id="list" aria-live="polite"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="wrap footer">
+    <p class="muted">Hecho para que no peleen por "¿en qué capítulo íbamos?". 🫶
+      <span class="mini">(Corre offline, sin backend.)</span>
+    </p>
+  </footer>
+
+  <!-- ===== MODAL ===== -->
+  <div id="modalOverlay" class="modal-overlay" role="dialog" aria-modal="true"
+       aria-labelledby="modalTitle" hidden>
+    <div class="modal-card">
+
+      <div class="modal-header">
+        <h2 id="modalTitle" class="modal-title">Editar</h2>
+        <button type="button" id="modalClose" class="btn-icon" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="modal-body">
+
+        <div class="field">
+          <input id="mTitle" type="text" placeholder="Título" maxlength="120" />
+          <span class="field-label">Título</span>
+        </div>
+
+        <div class="row-2 mt-14">
+          <div class="field">
+            <select id="mType">
+              <option value="serie">📺 Serie</option>
+              <option value="pelicula">🎬 Película</option>
+              <option value="anime">⛩️ Anime</option>
+              <option value="documental">🎙️ Documental</option>
+            </select>
+            <span class="field-label">Tipo</span>
+          </div>
+          <div class="field">
+            <select id="mStatus">
+              <option value="pendiente">🕐 Pendiente</option>
+              <option value="viendo">▶️ Viendo</option>
+              <option value="terminada">✅ Terminada</option>
+              <option value="en-pausa">⏸️ En pausa</option>
+              <option value="abandonada">❌ Abandonada</option>
+            </select>
+            <span class="field-label">Estado</span>
+          </div>
+        </div>
+
+        <div class="row-2 mt-14">
+          <div class="field">
+            <select id="mPlatform">
+              <option value="">— Sin plataforma</option>
+              <option value="netflix">Netflix</option>
+              <option value="max">Max</option>
+              <option value="prime">Prime Video</option>
+              <option value="disney">Disney+</option>
+              <option value="apple">Apple TV+</option>
+              <option value="crunchyroll">Crunchyroll</option>
+              <option value="mubi">MUBI</option>
+              <option value="youtube">YouTube</option>
+              <option value="otro">Otro</option>
+            </select>
+            <span class="field-label">Plataforma</span>
+          </div>
+          <div class="field">
+            <select id="mProfile">
+              <option value="alek">Alek</option>
+              <option value="cata">Cata</option>
+              <option value="shared">Juntos 🫶</option>
+            </select>
+            <span class="field-label">¿De quién?</span>
+          </div>
+        </div>
+
+        <div class="row-3 mt-14">
+          <div class="field">
+            <input id="mSeason" type="number" min="0" step="1" placeholder="0" />
+            <span class="field-label">Temporada</span>
+          </div>
+          <div class="field">
+            <input id="mEpisode" type="number" min="0" step="1" placeholder="0" />
+            <span class="field-label">Episodio</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Rating</span>
+            <div id="mStars" class="stars-input" role="group" aria-label="Rating de 1 a 5 estrellas"></div>
+          </div>
+        </div>
+
+        <div class="field mt-14">
+          <input id="mTags" type="text" placeholder="Agrega un tag y presiona Enter o coma" />
+          <span class="field-label">Tags / géneros</span>
+          <div id="mTagsPreview" class="tags-preview"></div>
+        </div>
+
+        <div class="field mt-14">
+          <input id="mPoster" type="url" placeholder="https://… (URL de la portada)" />
+          <span class="field-label">Imagen de portada</span>
+        </div>
+
+        <div class="field mt-14">
+          <input id="mRecommendedBy" type="text" placeholder="¿Quién lo recomendó?" maxlength="80" />
+          <span class="field-label">Recomendado por</span>
+        </div>
+
+        <div class="row-3 mt-14">
+          <div class="field">
+            <input id="mDateStarted" type="date" />
+            <span class="field-label">Empezada</span>
+          </div>
+          <div class="field">
+            <input id="mDateFinished" type="date" />
+            <span class="field-label">Terminada</span>
+          </div>
+          <div class="field">
+            <input id="mNextDate" type="date" />
+            <span class="field-label">Próx. temporada</span>
+          </div>
+        </div>
+
+        <div class="field mt-14">
+          <textarea id="mNotes" rows="4" placeholder="Notas, opiniones, con quién la viste…"></textarea>
+          <span class="field-label">Notas</span>
+        </div>
+
+      </div><!-- /modal-body -->
+
+      <div class="modal-footer">
+        <button type="button" id="modalSave" class="btn-primary">Guardar cambios</button>
+        <button type="button" id="modalCancel" class="btn-ghost">Cancelar</button>
+      </div>
+
+    </div><!-- /modal-card -->
+  </div><!-- /modal-overlay -->
+
+  <script src="app.js"></script>
+</body>
+</html>
