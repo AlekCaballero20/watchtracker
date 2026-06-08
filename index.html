@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#080e1c" />
-  <meta name="description" content="Tracker local para series y películas. Sin backend, sin drama." />
+  <meta name="description" content="Lista divertida para series, películas y decisiones audiovisuales que nadie quiso tomar." />
   <title>Watch Tracker · Series & Pelis</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -20,7 +20,7 @@
     <div class="topbar">
       <div class="brand">
         <h1>Watch<span class="brand-accent">Tracker</span></h1>
-        <p class="muted sub">"La tengo en la cabeza" no es un sistema. 📺🎬</p>
+        <p class="muted sub">"La tengo en la cabeza" es el primer paso hacia el caos. 📺🎬</p>
         <div class="shortcuts mini muted">
           <span class="kbd-pill"><kbd>Alt</kbd>+<kbd>E</kbd> +1 ep</span>
           <span class="kbd-pill"><kbd>Alt</kbd>+<kbd>T</kbd> estado</span>
@@ -28,20 +28,14 @@
         </div>
       </div>
 
-      <!-- Profile toggle -->
-      <div class="profile-toggle" role="group" aria-label="Perfil activo">
-        <button type="button" class="profile-btn" data-profile="alek">
-          <span class="avatar av-alek">A</span>
-          <span>Alek</span>
-        </button>
-        <button type="button" class="profile-btn" data-profile="cata">
-          <span class="avatar av-cata">C</span>
-          <span>Cata</span>
-        </button>
-        <button type="button" class="profile-btn" data-profile="all">
-          <span class="avatar av-all">🫶</span>
-          <span>Juntos</span>
-        </button>
+      <!-- Personas -->
+      <div class="people-card" aria-label="Personas que usan la lista">
+        <div id="profileToggle" class="profile-toggle" role="group" aria-label="Ver lista de"></div>
+        <form id="userForm" class="user-form" autocomplete="off">
+          <input id="newUserName" type="text" placeholder="Agregar persona nueva" maxlength="40" />
+          <button type="submit" class="btn-ghost">Sumar humano</button>
+        </form>
+        <div id="userNote" class="mini muted user-note">Mientras más gente, más opiniones. Qué podría salir mal. 👀</div>
       </div>
     </div>
   </header>
@@ -54,11 +48,11 @@
 
       <!-- Add form -->
       <div class="panel">
-        <h2 class="panel-title">Agregar</h2>
+        <h2 class="panel-title">Agregar antojo audiovisual</h2>
         <form id="form" autocomplete="off" novalidate>
 
           <input id="title" name="title" type="text"
-            placeholder="Título (Arcane, Dune, The Bear…)"
+            placeholder="Nombre de la serie, peli o cosa que promete pero quién sabe…"
             required maxlength="120" class="input-main" />
 
           <div class="row-2 mt-10">
@@ -100,17 +94,13 @@
               <span class="field-label">Plataforma</span>
             </div>
             <div class="field">
-              <select id="formProfile" name="formProfile">
-                <option value="alek">Alek</option>
-                <option value="cata">Cata</option>
-                <option value="shared">Juntos 🫶</option>
-              </select>
-              <span class="field-label">¿De quién?</span>
+              <select id="formProfile" name="formProfile"></select>
+              <span class="field-label">¿Quién la quiere ver?</span>
             </div>
           </div>
 
           <details class="advanced-toggle mt-12">
-            <summary>⚙️ Opciones avanzadas</summary>
+            <summary>🍿 Detalles para gente intensa</summary>
             <div class="advanced-body">
               <div class="row-3">
                 <div class="field">
@@ -127,11 +117,11 @@
                 </div>
               </div>
               <div class="field mt-10">
-                <input id="tags" name="tags" type="text" placeholder="Terror, Sci-Fi, Romance…" />
-                <span class="field-label">Tags (coma para separar)</span>
+                <input id="tags" name="tags" type="text" placeholder="Terror, sci-fi, romance, culpa ajena…" />
+                <span class="field-label">Géneros / etiquetas</span>
               </div>
               <div class="field mt-10">
-                <input id="poster" name="poster" type="url" placeholder="https://… (URL del póster)" />
+                <input id="poster" name="poster" type="url" placeholder="Pega aquí una imagen de portada" />
                 <span class="field-label">Imagen de portada</span>
               </div>
               <div class="field mt-10">
@@ -139,29 +129,70 @@
                 <span class="field-label">Recomendado por</span>
               </div>
               <div class="field mt-10">
-                <textarea id="notes" name="notes" rows="3" placeholder="Notas rápidas, capítulo pendiente, con quién la viste…"></textarea>
+                <textarea id="notes" name="notes" rows="3" placeholder="Notas, chisme, capítulo pendiente, razones para no abandonarla…"></textarea>
                 <span class="field-label">Notas</span>
               </div>
             </div>
           </details>
 
           <div class="form-actions mt-12">
-            <button type="submit" class="btn-primary">Agregar</button>
+            <button type="submit" class="btn-primary">Guardar antojo</button>
             <button type="button" id="clearAll" class="btn-ghost danger-text">Borrar todo</button>
           </div>
         </form>
       </div>
 
+
+      <!-- Roulette -->
+      <div class="panel mt-14 roulette-panel">
+        <div class="roulette-heading">
+          <div>
+            <h2 class="panel-title">Ruleta anti “no sé qué ver”</h2>
+            <p class="mini muted">Escribe nombres o trae pendientes. Decidir a mano era demasiado 2012.</p>
+          </div>
+          <span id="wheelCount" class="roulette-count">0</span>
+        </div>
+
+        <form id="wheelForm" class="wheel-form" autocomplete="off" novalidate>
+          <input id="wheelTitle" type="text" class="input-main"
+            placeholder="Escribe solo el nombre. La ruleta no pidió hoja de vida." maxlength="120" required />
+
+          <div class="form-actions mt-12">
+            <button type="submit" class="btn-primary">A la ruleta</button>
+            <button type="button" id="wheelFromList" class="btn-ghost">Traer pendientes</button>
+            <button type="button" id="wheelClear" class="btn-ghost danger-text">Vaciar ruleta</button>
+          </div>
+        </form>
+
+        <div class="roulette-stage" aria-hidden="false">
+          <div class="roulette-pointer">▾</div>
+          <div id="rouletteWheel" class="roulette-wheel" role="img" aria-label="Ruleta de opciones para ver">
+            <div class="roulette-center">Girar</div>
+          </div>
+        </div>
+
+        <div class="roulette-actions">
+          <button type="button" id="spinWheel" class="btn-primary" disabled>🎡 Girar y aceptar el destino</button>
+          <button type="button" id="shuffleWheel" class="btn-ghost">Mezclar</button>
+        </div>
+
+        <div id="wheelResult" class="roulette-result" aria-live="polite">
+          Agrega mínimo dos opciones. Una sola opción no es ruleta, es resignación. 🎬
+        </div>
+
+        <div id="wheelOptions" class="wheel-options" aria-live="polite"></div>
+      </div>
+
       <!-- Filters -->
       <div class="panel mt-14">
-        <h2 class="panel-title">Buscar y filtrar</h2>
+        <h2 class="panel-title">Encontrar sin sufrir</h2>
 
-        <input id="search" type="search" placeholder="Título, notas, tags, recomendado por…" />
+        <input id="search" type="search" placeholder="Título, notas, géneros, quién lo recomendó…" />
 
         <div class="row-2 mt-10">
           <div class="field">
             <select id="filterStatus">
-              <option value="">Todos los estados</option>
+              <option value="">Cualquier estado emocional</option>
               <option value="pendiente">Pendiente</option>
               <option value="viendo">Viendo</option>
               <option value="terminada">Terminada</option>
@@ -171,7 +202,7 @@
           </div>
           <div class="field">
             <select id="filterType">
-              <option value="">Todos los tipos</option>
+              <option value="">Cualquier criatura audiovisual</option>
               <option value="serie">Serie</option>
               <option value="pelicula">Película</option>
               <option value="anime">Anime</option>
@@ -183,7 +214,7 @@
         <div class="row-2 mt-10">
           <div class="field">
             <select id="filterPlatform">
-              <option value="">Todas las plataformas</option>
+              <option value="">Cualquier guarida de streaming</option>
               <option value="netflix">Netflix</option>
               <option value="max">Max</option>
               <option value="prime">Prime Video</option>
@@ -197,11 +228,11 @@
           </div>
           <div class="field">
             <select id="sortBy">
-              <option value="updated_desc">Más recientes</option>
+              <option value="updated_desc">Lo más reciente</option>
               <option value="created_desc">Agregados</option>
               <option value="title_asc">A → Z</option>
-              <option value="rating_desc">Mejor rating</option>
-              <option value="status_asc">Por estado</option>
+              <option value="rating_desc">Más aplaudidas</option>
+              <option value="status_asc">Por nivel de abandono</option>
             </select>
           </div>
         </div>
@@ -210,16 +241,16 @@
 
         <!-- Stats -->
         <div id="stats" aria-live="polite" class="stats-block mini muted">
-          Cargando…
+          Organizando el desastre…
         </div>
       </div>
 
       <!-- Backup -->
       <div class="panel mt-14">
         <div class="backup-row">
-          <button type="button" id="exportBtn" class="btn-ghost">⬇ Exportar</button>
-          <button type="button" id="importBtn" class="btn-ghost">⬆ Importar</button>
-          <span class="mini muted">Backup JSON</span>
+          <button type="button" id="exportBtn" class="btn-ghost">⬇ Guardar copia</button>
+          <button type="button" id="importBtn" class="btn-ghost">⬆ Traer copia</button>
+          <span class="mini muted">Copia salvavidas</span>
         </div>
       </div>
 
@@ -229,7 +260,7 @@
     <section class="list-col" aria-label="Listado">
       <div class="panel">
         <div class="list-header">
-          <h2 style="margin:0">Tu lista</h2>
+          <h2 style="margin:0">La lista, ese cajón con culpa</h2>
           <span class="mini muted" id="listCount"></span>
         </div>
         <div class="divider"></div>
@@ -241,7 +272,7 @@
 
   <footer class="wrap footer">
     <p class="muted">Hecho para que no peleen por "¿en qué capítulo íbamos?". 🫶
-      <span class="mini">(Corre offline, sin backend.)</span>
+      <span class="mini">La memoria humana hizo lo que pudo.</span>
     </p>
   </footer>
 
@@ -301,12 +332,8 @@
             <span class="field-label">Plataforma</span>
           </div>
           <div class="field">
-            <select id="mProfile">
-              <option value="alek">Alek</option>
-              <option value="cata">Cata</option>
-              <option value="shared">Juntos 🫶</option>
-            </select>
-            <span class="field-label">¿De quién?</span>
+            <select id="mProfile"></select>
+            <span class="field-label">¿Quién la quiere ver?</span>
           </div>
         </div>
 
@@ -326,13 +353,13 @@
         </div>
 
         <div class="field mt-14">
-          <input id="mTags" type="text" placeholder="Agrega un tag y presiona Enter o coma" />
-          <span class="field-label">Tags / géneros</span>
+          <input id="mTags" type="text" placeholder="Agrega un género y presiona Enter o coma" />
+          <span class="field-label">Géneros / etiquetas</span>
           <div id="mTagsPreview" class="tags-preview"></div>
         </div>
 
         <div class="field mt-14">
-          <input id="mPoster" type="url" placeholder="https://… (URL de la portada)" />
+          <input id="mPoster" type="url" placeholder="Pega aquí una imagen de portada" />
           <span class="field-label">Imagen de portada</span>
         </div>
 
@@ -357,7 +384,7 @@
         </div>
 
         <div class="field mt-14">
-          <textarea id="mNotes" rows="4" placeholder="Notas, opiniones, con quién la viste…"></textarea>
+          <textarea id="mNotes" rows="4" placeholder="Notas, opiniones, pactos de no spoilear…"></textarea>
           <span class="field-label">Notas</span>
         </div>
 

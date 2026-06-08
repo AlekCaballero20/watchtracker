@@ -1,12 +1,12 @@
 /* ==========================================================================
-   Watch Tracker · app.js v3
-   Perfiles, modal de edición, plataforma, tags, póster, fechas,
-   recomendaciones, rating con estrellas, stats visuales, confirmación inline.
-   Sin dependencias. Sin backend. Solo orden.
+   Watch Tracker · app.js v4
+   Lista compartida, personas editables, ruleta sencilla y textos menos tiesos.
 ========================================================================== */
 
 const STORAGE_KEY  = "watch_tracker_v1";
 const PROFILE_KEY  = "watch_tracker_profile";
+const WHEEL_KEY    = "watch_tracker_roulette_v1";
+const USERS_KEY    = "watch_tracker_users_v1";
 
 // ---- DOM helpers ----
 const el  = (id)          => document.getElementById(id);
@@ -34,10 +34,14 @@ const STATUS_COLOR = {
 
 // ---- State ----
 let items         = [];
+let users         = [];
 let activeProfile = localStorage.getItem(PROFILE_KEY) || "all";
 let editingId     = null;
 let modalRating   = null;
 let modalTags     = [];
+let wheelOptions  = [];
+let wheelRotation = 0;
+let isSpinning    = false;
 
 // ---- Storage ----
 function load() {
@@ -53,6 +57,153 @@ function save() {
 
 function uid() {
   return crypto?.randomUUID?.() ?? (Date.now().toString(16) + Math.random().toString(16).slice(2));
+}
+
+// ---- People ----
+const USER_COLORS = ["#3b7dff", "#ec4899", "#34d399", "#a855f7", "#fbbf24", "#22d3ee", "#fb923c", "#f43f5e"];
+const DEFAULT_USERS = [
+  { id: "alek", name: "Alek", color: "#3b7dff" },
+  { id: "cata", name: "Cata", color: "#ec4899" },
+];
+
+function cleanName(name) {
+  return String(name ?? "").trim().replace(/\s+/g, " ").slice(0, 40);
+}
+
+function makeUserId(name) {
+  const base = cleanName(name)
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "persona";
+
+  let id = base.slice(0, 32);
+  let i = 2;
+  while (["all", "shared"].includes(id) || users.some(u => u.id === id)) {
+    id = `${base.slice(0, 26)}-${i++}`;
+  }
+  return id;
+}
+
+function initials(name) {
+  const parts = cleanName(name).split(" ").filter(Boolean);
+  return (parts.length > 1 ? parts[0][0] + parts[1][0] : (parts[0] || "?").slice(0, 2)).toUpperCase();
+}
+
+function safeColor(color, fallback) {
+  const c = String(color || "").trim();
+  return /^#[0-9a-f]{3,8}$/i.test(c) ? c : fallback;
+}
+
+function normalizeUser(user, idx = 0) {
+  if (!user) return null;
+  const name = cleanName(typeof user === "string" ? user : user.name);
+  if (!name) return null;
+  const id = String(typeof user === "object" && user.id ? user.id : makeUserId(name))
+    .toLowerCase().trim().replace(/[^a-z0-9-]/g, "-") || makeUserId(name);
+  return {
+    id,
+    name,
+    color: safeColor(user.color, USER_COLORS[idx % USER_COLORS.length]),
+  };
+}
+
+function loadUsers() {
+  try {
+    const raw = localStorage.getItem(USERS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveUsers() {
+  try { localStorage.setItem(USERS_KEY, JSON.stringify(users)); } catch {}
+}
+
+function initUsers() {
+  const raw = loadUsers();
+  const base = Array.isArray(raw) && raw.length ? raw : DEFAULT_USERS;
+  const map = new Map();
+  base.map(normalizeUser).filter(Boolean).forEach((u, idx) => {
+    const id = ["all", "shared"].includes(u.id) ? `${u.id}-${idx + 1}` : u.id;
+    if (!map.has(id)) map.set(id, { ...u, id });
+  });
+  const list = Array.from(map.values());
+  try { localStorage.setItem(USERS_KEY, JSON.stringify(list)); } catch {}
+  return list;
+}
+
+function getUser(id) {
+  return users.find(u => u.id === id);
+}
+
+function getProfileName(profile) {
+  if (profile === "shared") return "Compartido";
+  return getUser(profile)?.name || "Alguien misterioso";
+}
+
+function validProfile(profile) {
+  return profile === "all" || profile === "shared" || Boolean(getUser(profile));
+}
+
+function showUserNote(text) {
+  const note = el("userNote");
+  if (note) note.textContent = text;
+}
+
+function populateProfileSelects(preferred) {
+  const options = [
+    `<option value="shared">Compartido 🫶</option>`,
+    ...users.map(u => `<option value="${escHtml(u.id)}">${escHtml(u.name)}</option>`),
+  ].join("");
+
+  ["formProfile", "mProfile"].forEach(id => {
+    const select = el(id);
+    if (!select) return;
+    const current = preferred || select.value || (activeProfile !== "all" ? activeProfile : "shared");
+    select.innerHTML = options;
+    select.value = current === "all" ? "shared" : (validProfile(current) ? current : "shared");
+  });
+}
+
+function renderPeople() {
+  const host = el("profileToggle");
+  if (!host) return;
+  const buttons = [
+    { id: "all", name: "Todo", icon: "🍿", color: "#34d399" },
+    { id: "shared", name: "Compartido", icon: "🫶", color: "#a855f7" },
+    ...users.map(u => ({ id: u.id, name: u.name, icon: initials(u.name), color: u.color })),
+  ];
+
+  host.innerHTML = buttons.map(p => `
+    <button type="button" class="profile-btn${activeProfile === p.id ? " active" : ""}" data-profile="${escHtml(p.id)}" title="Ver ${escHtml(p.name)}">
+      <span class="avatar" style="--avatar-bg:${escHtml(p.color)}">${escHtml(p.icon)}</span>
+      <span>${escHtml(p.name)}</span>
+    </button>`).join("");
+}
+
+function addUser(name) {
+  const clean = cleanName(name);
+  if (!clean) {
+    showUserNote("Ponle nombre al humano. Hasta la ruleta tiene más identidad. 🫠");
+    return;
+  }
+
+  const existing = users.find(u => u.name.toLowerCase() === clean.toLowerCase());
+  if (existing) {
+    setProfile(existing.id);
+    showUserNote(`${existing.name} ya estaba invitado a este desorden audiovisual.`);
+    return;
+  }
+
+  const user = {
+    id: makeUserId(clean),
+    name: clean,
+    color: USER_COLORS[users.length % USER_COLORS.length],
+  };
+  users.push(user);
+  saveUsers();
+  populateProfileSelects(user.id);
+  setProfile(user.id);
+  showUserNote(`${user.name} agregado. Otro criterio humano entrando al chat. 🎟️`);
 }
 
 // ---- Normalization / migration ----
@@ -109,8 +260,14 @@ function normalizeStatus(v) {
 }
 
 function normalizeProfile(v) {
-  const s = String(v ?? "").toLowerCase().trim();
-  return ["alek","cata","shared"].includes(s) ? s : "shared";
+  const raw = String(v ?? "").trim();
+  const s = raw.toLowerCase();
+  if (["shared", "juntos", "compartido", "todos"].includes(s)) return "shared";
+  const byId = users.find(u => u.id === s);
+  if (byId) return byId.id;
+  const byName = users.find(u => u.name.toLowerCase() === s);
+  if (byName) return byName.id;
+  return "shared";
 }
 
 function normalizePlatform(v) {
@@ -191,16 +348,214 @@ function clearAll() {
   render();
 }
 
+
+// ---- Roulette ----
+const WHEEL_COLORS = [
+  "#3b7dff", "#a855f7", "#ec4899", "#34d399", "#fbbf24",
+  "#22d3ee", "#fb923c", "#f43f5e", "#7c3aed", "#14b8a6"
+];
+const WHEEL_MESSAGES = [
+  "La ruleta habló y nadie aquí tiene la energía para contradecirla:",
+  "Se acabó la democracia audiovisual. Hoy se ve:",
+  "El destino dio vueltas como adulto pagando recibos y eligió:",
+  "Felicitaciones, ya no tienen que discutir durante 40 minutos. Ganó:",
+  "La rueda, esa gerente mediocre pero decidida, propone:",
+  "La bolita invisible del destino decretó plan oficial:",
+];
+
+function loadWheel() {
+  try {
+    const raw = localStorage.getItem(WHEEL_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveWheel() {
+  try { localStorage.setItem(WHEEL_KEY, JSON.stringify(wheelOptions)); } catch {}
+}
+
+function normalizeWheelOption(opt) {
+  if (!opt || typeof opt !== "object") return null;
+  const title = String(opt.title ?? "").trim();
+  if (!title) return null;
+  const now = new Date().toISOString();
+  return {
+    id:           String(opt.id ?? uid()),
+    title,
+    sourceItemId: opt.sourceItemId ? String(opt.sourceItemId) : "",
+    createdAt:    isoOr(opt.createdAt, now),
+  };
+}
+
+function initWheelOptions() {
+  const raw = loadWheel();
+  if (!Array.isArray(raw)) return [];
+  const migrated = raw.map(normalizeWheelOption).filter(Boolean);
+  if (JSON.stringify(raw) !== JSON.stringify(migrated)) {
+    try { localStorage.setItem(WHEEL_KEY, JSON.stringify(migrated)); } catch {}
+  }
+  return migrated;
+}
+
+function wheelOptionFromItem(it) {
+  return normalizeWheelOption({
+    title: it.title,
+    sourceItemId: it.id,
+  });
+}
+
+function addWheelOption(data) {
+  const option = normalizeWheelOption(data);
+  if (!option) return false;
+
+  const exists = wheelOptions.some(x =>
+    (option.sourceItemId && x.sourceItemId === option.sourceItemId) ||
+    x.title.toLowerCase() === option.title.toLowerCase()
+  );
+  if (exists) {
+    showWheelResult("Esa opción ya estaba en la ruleta. La repetición es útil en la música, no tanto aquí. 🫠");
+    return false;
+  }
+
+  wheelOptions.push(option);
+  saveWheel();
+  renderWheel();
+  return true;
+}
+
+function deleteWheelOption(id) {
+  wheelOptions = wheelOptions.filter(x => x.id !== id);
+  saveWheel();
+  renderWheel();
+}
+
+function clearWheelOptions() {
+  wheelOptions = [];
+  wheelRotation = 0;
+  saveWheel();
+  renderWheel();
+}
+
+function shuffleWheelOptions() {
+  for (let i = wheelOptions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [wheelOptions[i], wheelOptions[j]] = [wheelOptions[j], wheelOptions[i]];
+  }
+  saveWheel();
+  renderWheel();
+  showWheelResult("Listo, opciones mezcladas. El caos ahora usa zapatos bonitos. 🔀");
+}
+
+function addPendingToWheel() {
+  const base = getFiltered().length ? getFiltered() : items;
+  const pool = base.filter(it => !["terminada", "abandonada"].includes(it.status));
+  const source = pool.length ? pool : base;
+  let added = 0;
+
+  for (const it of source) {
+    const option = wheelOptionFromItem(it);
+    if (!option) continue;
+    const exists = wheelOptions.some(x => x.sourceItemId === it.id || x.title.toLowerCase() === option.title.toLowerCase());
+    if (!exists) {
+      wheelOptions.push(option);
+      added++;
+    }
+  }
+
+  saveWheel();
+  renderWheel();
+  showWheelResult(added
+    ? `Agregué ${added} pendiente${added !== 1 ? "s" : ""} a la ruleta. Ahora sí, que decida el círculo dramático. 🎡`
+    : "No encontré pendientes nuevos para sumar. Trágico: tocará escribir como civilización antigua. ✍️"
+  );
+}
+
+function renderWheel() {
+  const wheel = el("rouletteWheel");
+  const optionsEl = el("wheelOptions");
+  const countEl = el("wheelCount");
+  const spinBtn = el("spinWheel");
+  if (!wheel || !optionsEl) return;
+
+  const n = wheelOptions.length;
+  if (countEl) countEl.textContent = `${n}`;
+  if (spinBtn) spinBtn.disabled = n < 2 || isSpinning;
+
+  const slice = n ? 360 / n : 360;
+  const gradient = n
+    ? wheelOptions.map((_, i) => {
+        const color = WHEEL_COLORS[i % WHEEL_COLORS.length];
+        return `${color} ${i * slice}deg ${(i + 1) * slice}deg`;
+      }).join(", ")
+    : "rgba(255,255,255,.08) 0deg 360deg";
+
+  wheel.style.background = `conic-gradient(${gradient})`;
+  wheel.style.transform = `rotate(${wheelRotation}deg)`;
+  wheel.querySelector(".roulette-center").textContent = n ? `${n} opciones` : "Vacía";
+
+  optionsEl.innerHTML = n
+    ? wheelOptions.map((opt, i) => `
+        <div class="wheel-option" style="--wheel-color:${WHEEL_COLORS[i % WHEEL_COLORS.length]}">
+          <span class="wheel-dot"></span>
+          <div class="wheel-option-body">
+            <strong>${escHtml(opt.title)}</strong>
+            <span>Opción ${i + 1}. Breve, como debería ser todo trámite humano.</span>
+          </div>
+          <button type="button" class="small danger" data-wheel-delete="${opt.id}" aria-label="Quitar opción">Quitar</button>
+        </div>`).join("")
+    : `<div class="wheel-empty mini muted">Sin opciones todavía. Una ruleta vacía es solo decoración con complejo de importancia.</div>`;
+}
+
+function showWheelResult(html) {
+  const result = el("wheelResult");
+  if (result) result.innerHTML = html;
+}
+
+function winnerHtml(opt, prefix) {
+  return `
+    <strong>${escHtml(prefix)}</strong>
+    <span class="winner-title">${escHtml(opt.title)}</span>
+    <span class="winner-note">Ahora a verla, sin abrir otra pestaña para seguir dudando. Qué milagro. 🍿</span>
+  `;
+}
+
+function spinWheel() {
+  if (wheelOptions.length < 2 || isSpinning) return;
+
+  const wheel = el("rouletteWheel");
+  const spinBtn = el("spinWheel");
+  if (!wheel) return;
+
+  const n = wheelOptions.length;
+  const winnerIndex = Math.floor(Math.random() * n);
+  const slice = 360 / n;
+  const current = ((wheelRotation % 360) + 360) % 360;
+  const targetAngle = 360 - (winnerIndex * slice + slice / 2);
+  const extraTurns = 360 * (5 + Math.floor(Math.random() * 3));
+  wheelRotation += extraTurns + targetAngle - current;
+
+  isSpinning = true;
+  if (spinBtn) spinBtn.disabled = true;
+  wheel.classList.add("spinning");
+  wheel.style.transform = `rotate(${wheelRotation}deg)`;
+  showWheelResult("Girando… que el universo trabaje un poquito, para variar. 🌀");
+
+  window.setTimeout(() => {
+    isSpinning = false;
+    wheel.classList.remove("spinning");
+    if (spinBtn) spinBtn.disabled = wheelOptions.length < 2;
+    const winner = wheelOptions[winnerIndex];
+    const prefix = WHEEL_MESSAGES[Math.floor(Math.random() * WHEEL_MESSAGES.length)];
+    showWheelResult(winnerHtml(winner, prefix));
+  }, 3100);
+}
+
 // ---- Profile ----
 function setProfile(profile) {
-  activeProfile = profile;
-  localStorage.setItem(PROFILE_KEY, profile);
-  qsa(".profile-btn").forEach(btn =>
-    btn.classList.toggle("active", btn.dataset.profile === profile)
-  );
-  // Sync form default
-  const fp = el("formProfile");
-  if (fp) fp.value = profile === "all" ? "shared" : profile;
+  activeProfile = validProfile(profile) ? profile : "all";
+  localStorage.setItem(PROFILE_KEY, activeProfile);
+  renderPeople();
+  populateProfileSelects(activeProfile === "all" ? "shared" : activeProfile);
   render();
 }
 
@@ -305,19 +660,21 @@ function renderStats() {
   const total = items.length;
 
   if (!total) {
-    statsEl.innerHTML = '<span class="stat-pill">Nada aquí todavía 🎬</span>';
+    statsEl.innerHTML = '<span class="stat-pill">Nada todavía. La lista está más limpia que la conciencia de un villano. 🎬</span>';
     return;
   }
 
   const byStatus   = Object.fromEntries(STATUS.map(s => [s, 0]));
   const byPlatform = {};
-  const byProfile  = { alek: 0, cata: 0, shared: 0 };
+  const byProfile  = { shared: 0 };
+  users.forEach(u => byProfile[u.id] = 0);
   const rated      = [];
 
   for (const it of items) {
     byStatus[it.status] = (byStatus[it.status] || 0) + 1;
     if (it.platform) byPlatform[it.platform] = (byPlatform[it.platform] || 0) + 1;
-    byProfile[it.profile || "shared"]++;
+    const profile = normalizeProfile(it.profile);
+    byProfile[profile] = (byProfile[profile] || 0) + 1;
     if (it.rating != null) rated.push(it.rating);
   }
 
@@ -342,14 +699,17 @@ function renderStats() {
     topPlatform ? `<span class="stat-pill">🏆 ${PLATFORM_LABEL[topPlatform[0]] || topPlatform[0]}: ${topPlatform[1]}</span>` : "",
   ].filter(Boolean).join("");
 
+  const profileBits = [
+    byProfile.shared ? `<span style="color:#34d399">Compartido: ${byProfile.shared}</span>` : "",
+    ...users.filter(u => byProfile[u.id] > 0).map(u =>
+      `<span style="color:${escHtml(u.color)}">${escHtml(u.name)}: ${byProfile[u.id]}</span>`
+    ),
+  ].filter(Boolean).join(" · ");
+
   statsEl.innerHTML = `
     <div class="stat-progress">${segments}</div>
     <div class="pills-wrap">${pills}</div>
-    <div class="profile-stats mini">
-      <span style="color:#5b83ff">A: ${byProfile.alek}</span> ·
-      <span style="color:#f472b6">C: ${byProfile.cata}</span> ·
-      <span style="color:#34d399">Juntos: ${byProfile.shared}</span>
-    </div>`;
+    <div class="profile-stats mini">${profileBits || "Nadie ha reclamado nada. Sospechoso."}</div>`;
 }
 
 // ---- Render item ----
@@ -371,9 +731,7 @@ function renderItem(it) {
     ? `<span class="platform-badge" data-platform="${it.platform}">${escHtml(PLATFORM_LABEL[it.platform] || it.platform)}</span>`
     : "";
 
-  const profileHtml = it.profile !== "shared"
-    ? `<span class="profile-tag" data-profile="${it.profile}">${it.profile === "alek" ? "Alek" : "Cata"}</span>`
-    : "";
+  const profileHtml = `<span class="profile-tag" data-profile-kind="${it.profile === "shared" ? "shared" : "user"}">${escHtml(getProfileName(it.profile))}</span>`;
 
   const tagsHtml = it.tags?.length
     ? `<div class="tags-row">
@@ -450,7 +808,7 @@ function render() {
     listEl.innerHTML = `
       <div class="empty-state">
         <h3>${hasFilters ? "Nada que coincida" : "Lista vacía"}</h3>
-        <p>${hasFilters ? "Probá cambiando los filtros o la búsqueda." : "Agregá algo y aparecerá aquí."}</p>
+        <p>${hasFilters ? "Cambia la búsqueda y fingimos que esto nunca pasó." : "Agrega algo y la lista deja de mirar al vacío."}</p>
       </div>`;
     return;
   }
@@ -470,7 +828,8 @@ function openModal(id) {
   el("mType").value          = it.type;
   el("mStatus").value        = it.status;
   el("mPlatform").value      = it.platform || "";
-  el("mProfile").value       = it.profile  || "shared";
+  populateProfileSelects(it.profile || "shared");
+  el("mProfile").value       = normalizeProfile(it.profile || "shared");
   el("mSeason").value        = it.season   || "";
   el("mEpisode").value       = it.episode  || "";
   el("mPoster").value        = it.poster   || "";
@@ -585,7 +944,7 @@ el("mTagsPreview")?.addEventListener("click", (e) => {
 
 // ---- Export / Import ----
 function exportData() {
-  const payload = { schema: 3, exportedAt: new Date().toISOString(), items };
+  const payload = { savedAt: new Date().toISOString(), users, items, roulette: wheelOptions };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
@@ -609,7 +968,18 @@ function importData() {
       try {
         const data     = JSON.parse(String(reader.result || ""));
         const incoming = Array.isArray(data) ? data : data?.items;
-        if (!Array.isArray(incoming)) { alert("Archivo inválido 😅"); return; }
+        if (!Array.isArray(incoming)) { alert("Ese archivo viene raro. No lo voy a fingir: no pude usarlo. 😅"); return; }
+
+        if (Array.isArray(data?.users)) {
+          const userMap = new Map(users.map(u => [u.id, u]));
+          data.users.map(normalizeUser).filter(Boolean).forEach(u => {
+            if (!userMap.has(u.id)) userMap.set(u.id, u);
+          });
+          users = Array.from(userMap.values());
+          saveUsers();
+          renderPeople();
+          populateProfileSelects();
+        }
 
         const normalized = incoming.map(normalizeItem).filter(Boolean);
         const map = new Map(items.map(x => [x.id, x]));
@@ -619,10 +989,20 @@ function importData() {
         }
         items = Array.from(map.values())
           .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+
+        if (Array.isArray(data?.roulette)) {
+          const incomingWheel = data.roulette.map(normalizeWheelOption).filter(Boolean);
+          const wheelMap = new Map(wheelOptions.map(x => [x.id, x]));
+          for (const opt of incomingWheel) wheelMap.set(opt.id, opt);
+          wheelOptions = Array.from(wheelMap.values());
+          saveWheel();
+        }
+
         save();
         render();
-        alert(`¡Importado! ${normalized.length} items sincronizados. ✅`);
-      } catch { alert("No pude leer ese JSON. Está roto o corrupto."); }
+        renderWheel();
+        alert(`¡Listo! Rescaté ${normalized.length} cosa${normalized.length !== 1 ? "s" : ""} para la lista. ✅`);
+      } catch { alert("No pude leer ese archivo. Está roto, triste o ambos."); }
     };
     reader.readAsText(file);
   };
@@ -649,7 +1029,33 @@ el("form")?.addEventListener("submit", (e) => {
     notes:         el("notes").value,
   });
   el("form").reset();
+  populateProfileSelects(activeProfile === "all" ? "shared" : activeProfile);
   el("title").focus();
+});
+
+
+// Roulette events
+el("wheelForm")?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const added = addWheelOption({
+    title: el("wheelTitle").value,
+  });
+  if (!added) return;
+  el("wheelForm").reset();
+  el("wheelTitle").focus();
+  showWheelResult("Opción agregada. La indecisión acaba de recibir munición. ✅");
+});
+
+el("wheelFromList")?.addEventListener("click", addPendingToWheel);
+el("wheelClear")?.addEventListener("click", () => {
+  if (wheelOptions.length && confirm("¿Vaciar la ruleta? Mira que después toca pensar otra vez.")) clearWheelOptions();
+});
+el("spinWheel")?.addEventListener("click", spinWheel);
+el("shuffleWheel")?.addEventListener("click", shuffleWheelOptions);
+el("wheelOptions")?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-wheel-delete]");
+  if (!btn) return;
+  deleteWheelOption(btn.dataset.wheelDelete);
 });
 
 // List delegation (clicks)
@@ -745,9 +1151,18 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !el("modalOverlay").hidden) closeModal();
 });
 
-// Profile toggle
-qsa(".profile-btn").forEach(btn => {
-  btn.addEventListener("click", () => setProfile(btn.dataset.profile));
+// People
+el("profileToggle")?.addEventListener("click", (e) => {
+  const btn = e.target.closest(".profile-btn");
+  if (!btn) return;
+  setProfile(btn.dataset.profile);
+});
+
+el("userForm")?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  addUser(el("newUserName")?.value);
+  el("newUserName").value = "";
+  el("newUserName").focus();
 });
 
 // Filters
@@ -757,7 +1172,7 @@ qsa(".profile-btn").forEach(btn => {
 
 // Clear all
 el("clearAll")?.addEventListener("click", () => {
-  if (items.length && confirm("¿Borrar todo? Sí, todo. 😬")) clearAll();
+  if (items.length && confirm("¿Borrar toda la lista? Decisión fuerte para un botón tan pequeño. 😬")) clearAll();
 });
 
 // Export / Import
@@ -790,6 +1205,11 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ---- Boot ----
+users = initUsers();
 items = initItems();
-setProfile(activeProfile); // sets active button + syncs form
+wheelOptions = initWheelOptions();
+renderPeople();
+populateProfileSelects();
+setProfile(activeProfile);
+renderWheel();
 render();
