@@ -168,16 +168,19 @@ function renderPeople() {
   const host = el("profileToggle");
   if (!host) return;
   const buttons = [
-    { id: "all", name: "Todo", icon: "🍿", color: "#34d399" },
-    { id: "shared", name: "Compartido", icon: "🫶", color: "#a855f7" },
-    ...users.map(u => ({ id: u.id, name: u.name, icon: initials(u.name), color: u.color })),
+    { id: "all", name: "Todo", icon: "🍿", color: "#34d399", removable: false },
+    { id: "shared", name: "Compartido", icon: "🫶", color: "#a855f7", removable: false },
+    ...users.map(u => ({ id: u.id, name: u.name, icon: initials(u.name), color: u.color, removable: true })),
   ];
 
   host.innerHTML = buttons.map(p => `
-    <button type="button" class="profile-btn${activeProfile === p.id ? " active" : ""}" data-profile="${escHtml(p.id)}" title="Ver ${escHtml(p.name)}">
-      <span class="avatar" style="--avatar-bg:${escHtml(p.color)}">${escHtml(p.icon)}</span>
-      <span>${escHtml(p.name)}</span>
-    </button>`).join("");
+    <div class="profile-chip${p.removable ? " removable" : ""}">
+      <button type="button" class="profile-btn${activeProfile === p.id ? " active" : ""}" data-profile="${escHtml(p.id)}" title="Ver ${escHtml(p.name)}">
+        <span class="avatar" style="--avatar-bg:${escHtml(p.color)}">${escHtml(p.icon)}</span>
+        <span>${escHtml(p.name)}</span>
+      </button>
+      ${p.removable ? `<button type="button" class="profile-remove" data-remove="${escHtml(p.id)}" title="Quitar a ${escHtml(p.name)}" aria-label="Quitar a ${escHtml(p.name)}">×</button>` : ""}
+    </div>`).join("");
 }
 
 function addUser(name) {
@@ -204,6 +207,34 @@ function addUser(name) {
   populateProfileSelects(user.id);
   setProfile(user.id);
   showUserNote(`${user.name} agregado. Otro criterio humano entrando al chat. 🎟️`);
+}
+
+function removeUser(id) {
+  const user = getUser(id);
+  if (!user) return;
+
+  if (!confirm(`¿Quitar a ${user.name}? Sus pelis/series pasarán a "Compartido". No se borra nada de la lista.`)) return;
+
+  // Reasignar items de esta persona a "shared" para no perderlos
+  let touched = false;
+  items.forEach(it => {
+    if (it.profile === id) {
+      it.profile = "shared";
+      it.updatedAt = new Date().toISOString();
+      touched = true;
+    }
+  });
+  if (touched) save();
+
+  users = users.filter(u => u.id !== id);
+  saveUsers();
+
+  // Si estábamos viendo a esa persona, volver a "Todo"
+  if (activeProfile === id) activeProfile = "all";
+
+  populateProfileSelects(activeProfile === "all" ? "shared" : activeProfile);
+  setProfile(activeProfile);
+  showUserNote(`${user.name} salió del chat. Menos opiniones, menos drama. 👋`);
 }
 
 // ---- Normalization / migration ----
@@ -1153,6 +1184,11 @@ document.addEventListener("keydown", (e) => {
 
 // People
 el("profileToggle")?.addEventListener("click", (e) => {
+  const removeBtn = e.target.closest(".profile-remove");
+  if (removeBtn) {
+    removeUser(removeBtn.dataset.remove);
+    return;
+  }
   const btn = e.target.closest(".profile-btn");
   if (!btn) return;
   setProfile(btn.dataset.profile);
