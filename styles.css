@@ -183,26 +183,41 @@ kbd {
 }
 .profile-remove {
   position: absolute;
-  top: -5px;
-  right: -5px;
-  width: 18px;
-  height: 18px;
-  display: none;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  /* Por defecto siempre visible (táctil / sin hover). */
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--bg, #0b0b12);
   background: #f43f5e;
   color: #fff;
-  font-size: .8rem;
+  font-size: .85rem;
   line-height: 1;
   cursor: pointer;
-  transition: transform .12s ease, filter .12s ease;
+  box-shadow: 0 1px 4px rgba(0,0,0,.35);
+  transition: transform .12s ease, filter .12s ease, opacity .12s ease;
+  -webkit-tap-highlight-color: transparent;
 }
-.profile-chip.removable:hover .profile-remove,
-.profile-remove:focus-visible { display: inline-flex; }
 .profile-remove:hover { filter: brightness(1.1); transform: scale(1.1); }
+.profile-remove:active { transform: scale(.92); }
+
+/* En dispositivos con mouse, mostrar la X solo al pasar el cursor o con foco. */
+@media (hover: hover) and (pointer: fine) {
+  .profile-remove { display: none; }
+  .profile-chip.removable:hover .profile-remove,
+  .profile-remove:focus-visible { display: inline-flex; }
+}
+
+/* En pantallas chicas damos un poco más de aire al toque. */
+@media (max-width: 640px) {
+  .profile-remove { width: 22px; height: 22px; font-size: .95rem; }
+  .profile-btn { padding: 8px 14px; }
+}
 
 .profile-btn {
   display: flex;
