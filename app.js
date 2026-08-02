@@ -251,6 +251,8 @@ function normalizeItem(it) {
     status:        normalizeStatus(it.status),
     season:        toInt(it.season, 0),
     episode:       toInt(it.episode, 0),
+    totalSeasons:  toInt(it.totalSeasons, 0),
+    totalEpisodes: toInt(it.totalEpisodes, 0),
     rating:        toRating(it.rating),
     notes:         String(it.notes ?? "").trim(),
     createdAt:     isoOr(it.createdAt, now),
@@ -665,12 +667,39 @@ function dateInputToIso(str) {
 }
 
 function formatProgress(it) {
-  const s = it.season || 0;
-  const e = it.episode || 0;
-  if (!s && !e) return "";
-  if (s && e) return `T${s}·E${e}`;
-  if (s)      return `T${s}`;
-  return `E${e}`;
+  const s  = it.season || 0;
+  const e  = it.episode || 0;
+  const ts = it.totalSeasons || 0;
+  const te = it.totalEpisodes || 0;
+  const sPart = s ? (ts ? `T${s}/${ts}` : `T${s}`) : (ts ? `${ts} temps` : "");
+  const ePart = e ? (te ? `E${e}/${te}` : `E${e}`) : (te ? `${te} caps` : "");
+  return [sPart, ePart].filter(Boolean).join("·");
+}
+
+// Porcentaje de avance: capítulos vistos sobre capítulos totales.
+// Si no hay total de capítulos, cae a temporadas. Terminada = 100%.
+function progressPercent(it) {
+  if (it.status === "terminada") return 100;
+  const te = it.totalEpisodes || 0;
+  const ts = it.totalSeasons  || 0;
+  let pct = null;
+  if (te)      pct = (it.episode || 0) / te * 100;
+  else if (ts) pct = (it.season  || 0) / ts * 100;
+  if (pct == null) return null;
+  return Math.max(0, Math.min(100, Math.round(pct)));
+}
+
+function progressBarHtml(it) {
+  const pct = progressPercent(it);
+  if (pct == null) return "";
+  const color = STATUS_COLOR[it.status] || "#3b7dff";
+  return `
+    <div class="item-progress" title="${pct}% de avance">
+      <div class="item-progress-bar">
+        <div class="item-progress-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <span class="item-progress-pct mini">${pct}%</span>
+    </div>`;
 }
 
 function starsDisplay(rating) {
@@ -799,6 +828,7 @@ function renderItem(it) {
       <div class="item-body">
         <h3 title="${escHtml(it.title)}">${escHtml(it.title)}</h3>
         <div class="meta">${metaItems}</div>
+        ${progressBarHtml(it)}
         ${tagsHtml}
         ${notesHtml}
         <div class="meta time-line">${escHtml(updated)}</div>
@@ -863,6 +893,8 @@ function openModal(id) {
   el("mProfile").value       = normalizeProfile(it.profile || "shared");
   el("mSeason").value        = it.season   || "";
   el("mEpisode").value       = it.episode  || "";
+  el("mTotalSeasons").value  = it.totalSeasons  || "";
+  el("mTotalEpisodes").value = it.totalEpisodes || "";
   el("mPoster").value        = it.poster   || "";
   el("mRecommendedBy").value = it.recommendedBy || "";
   el("mDateStarted").value   = isoToDateInput(it.dateStarted);
@@ -900,6 +932,8 @@ function saveModal() {
     profile:       el("mProfile").value,
     season:        el("mSeason").value,
     episode:       el("mEpisode").value,
+    totalSeasons:  el("mTotalSeasons").value,
+    totalEpisodes: el("mTotalEpisodes").value,
     rating:        modalRating,
     tags:          [...modalTags],
     poster:        el("mPoster").value.trim(),
@@ -1053,6 +1087,8 @@ el("form")?.addEventListener("submit", (e) => {
     profile:       el("formProfile").value,
     season:        el("season").value,
     episode:       el("episode").value,
+    totalSeasons:  el("totalSeasons").value,
+    totalEpisodes: el("totalEpisodes").value,
     rating:        el("rating").value,
     tags:          normalizeTags(el("tags").value),
     poster:        el("poster").value,
